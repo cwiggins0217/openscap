@@ -257,6 +257,7 @@ static struct oscap_module XCCDF_GEN_REPORT = {
     .usage = "[options] xccdf-file.xml",
     .help = GEN_OPTS
 		"\nReport Options:\n"
+		"   --enrichment <file>           - Add local, benchmark-scoped security context XML.\n"
 		"   --result-id <id>              - TestResult ID to be processed. Default is the most recent one.\n"
 		"   --output <file>               - Write the document into file.\n"
 		"   --verbose <verbosity_level>   - Turn on verbose mode at specified verbosity level.\n"
@@ -379,6 +380,7 @@ static const char * RESULT_COLORS[] = {"", "32", "31", "1;31", "1;30", "1", "1",
 #endif
 
 static char custom_stylesheet_path[PATH_MAX];
+static char enrichment_path[PATH_MAX];
 
 static void _print_rule_details(struct xccdf_policy *policy, struct xccdf_item *item)
 {
@@ -1281,6 +1283,7 @@ int app_xccdf_xslt(const struct oscap_action *action)
 		"profile_id",        action->profile,
 		"oval-template",     oval_template,
 		"sce-template",      sce_template,
+		"enrichment-file",   action->enrichment,
 		"verbosity",         "",
 		"hide-profile-info", action->hide_profile_info ? "yes" : NULL,
 		NULL
@@ -1320,6 +1323,7 @@ enum oval_opt {
     XCCDF_OPT_REPORT_FILE,
     XCCDF_OPT_FORMAT,
     XCCDF_OPT_STYLESHEET_FILE,
+    XCCDF_OPT_ENRICHMENT_FILE,
     XCCDF_OPT_FILE_VERSION,
 	XCCDF_OPT_TAILORING_FILE,
 	XCCDF_OPT_TAILORING_ID,
@@ -1356,6 +1360,7 @@ bool getopt_xccdf(int argc, char **argv, struct oscap_action *action)
 		{"result-id",		required_argument, NULL, XCCDF_OPT_RESULT_ID},
 		{"report", 		required_argument, NULL, XCCDF_OPT_REPORT_FILE},
 		{"stylesheet",	required_argument, NULL, XCCDF_OPT_STYLESHEET_FILE},
+		{"enrichment", required_argument, NULL, XCCDF_OPT_ENRICHMENT_FILE},
 		{"tailoring-file", required_argument, NULL, XCCDF_OPT_TAILORING_FILE},
 		{"tailoring-id", required_argument, NULL, XCCDF_OPT_TAILORING_ID},
 		{"cpe",	required_argument, NULL, XCCDF_OPT_CPE},
@@ -1410,6 +1415,17 @@ bool getopt_xccdf(int argc, char **argv, struct oscap_action *action)
 		/* we use realpath to get an absolute path to given XSLT to prevent openscap from looking
 		   into /usr/share/openscap/xsl instead of CWD */
 		case XCCDF_OPT_STYLESHEET_FILE: oscap_realpath(optarg, custom_stylesheet_path); action->stylesheet = custom_stylesheet_path; break;
+		case XCCDF_OPT_ENRICHMENT_FILE:
+			if (action->module != &XCCDF_GEN_REPORT) {
+				fprintf(stderr, "--enrichment is supported only by xccdf generate report.\n");
+				return false;
+			}
+			if (oscap_realpath(optarg, enrichment_path) == NULL || strchr(enrichment_path, '\'') != NULL) {
+				fprintf(stderr, "Cannot resolve enrichment file; use an existing local path without apostrophes.\n");
+				return false;
+			}
+			action->enrichment = enrichment_path;
+			break;
 		case XCCDF_OPT_TAILORING_FILE:	action->tailoring_file = optarg; break;
 		case XCCDF_OPT_TAILORING_ID:	action->tailoring_id = optarg; break;
 		case XCCDF_OPT_CPE:			action->cpe = optarg; break;

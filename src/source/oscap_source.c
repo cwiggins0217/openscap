@@ -88,7 +88,8 @@ struct oscap_source *oscap_source_new_from_file(const char *filepath)
 	return source;
 }
 
-struct oscap_source *oscap_source_clone(struct oscap_source *old)
+struct oscap_source
+*oscap_source_clone(struct oscap_source *old)
 {
 	struct oscap_source *new = (struct oscap_source *) calloc(1, sizeof(struct oscap_source));
 	new->scap_type = old->scap_type;
@@ -107,7 +108,8 @@ struct oscap_source *oscap_source_clone(struct oscap_source *old)
  * @param const char* filepath Path of file
  * @return Allocated struct
  */
-static struct oscap_source* _create_oscap_source(size_t size, const char* filepath)
+static struct
+oscap_source* _create_oscap_source(size_t size, const char* filepath)
 {
 	struct oscap_source *source = (struct oscap_source *) calloc(1, sizeof(struct oscap_source));
 	source->origin.memory_size = size;
@@ -187,7 +189,8 @@ xmlTextReader *oscap_source_get_xmlTextReader(struct oscap_source *source)
 	return reader;
 }
 
-oscap_document_type_t oscap_source_get_scap_type(struct oscap_source *source)
+oscap_document_type_t
+oscap_source_get_scap_type(struct oscap_source *source)
 {
 	if (source->scap_type == OSCAP_DOCUMENT_UNKNOWN) {
 		xmlTextReader *reader = oscap_source_get_xmlTextReader(source);
@@ -205,12 +208,14 @@ oscap_document_type_t oscap_source_get_scap_type(struct oscap_source *source)
 	return source->scap_type;
 }
 
-const char *oscap_source_get_filepath(struct oscap_source *source)
+const char
+*oscap_source_get_filepath(struct oscap_source *source)
 {
 	return source->origin.filepath;
 }
 
-static void xmlErrorCb(struct oscap_string *buffer, const char * format, ...)
+static void
+xmlErrorCb(struct oscap_string *buffer, const char * format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
@@ -222,7 +227,8 @@ static void xmlErrorCb(struct oscap_string *buffer, const char * format, ...)
 	va_end(ap);
 }
 
-static bool fd_file_is_executable(int fd)
+static bool
+fd_file_is_executable(int fd)
 {
 	int fd_dup = dup(fd);
 	if (fd_dup == -1) {
@@ -248,7 +254,8 @@ static bool fd_file_is_executable(int fd)
 	return is_exec;
 }
 
-static bool memory_file_is_executable(const char* memory, const size_t size)
+static bool
+memory_file_is_executable(const char* memory, const size_t size)
 {
 	if (size < 2){
 		return false; // Cannot read SHEBANG

@@ -1,0 +1,401 @@
+diff --git a/examples/report-enrichment/README.md b/examples/report-enrichment/README.md
+new file mode 100644
+index 0000000..0db6131
+--- /dev/null
++++ b/examples/report-enrichment/README.md
+@@ -0,0 +1,109 @@
++# Optional report enrichment: first implementation
++
++Based on cwiggins0217/openscap main at c84c8aa. This prototype adds curated
++security context to each finding using a local XML sidecar. It preserves the
++original scan results, scoring, and existing OVAL details.
++
++## Quick demonstration (no C build required)
++
++From the repository root, with Python 3 and lxml installed:
++
++```sh
++python3 examples/report-enrichment/render_demo.py
++python3 tests/API/XCCDF/report/test_enrichment.py
++```
++
++Open `enrichment-demo.html` and expand the first rule's details. The fixture
++is synthetic: the text is illustrative and makes no ATT&CK or CVE claims.
++The second rule demonstrates the explicit unmapped state.
++
++The Python demo is ONLY a renderer demonstration for the repository's XCCDF
++1.2 fixture. Use OpenSCAP's native command for your real scans, including its
++namespace normalization and ARF handling.
++
++## Native integration
++
++Build and install this modified fork using `docs/developer/developer.adoc`.
++Use an isolated development VM or installation prefix. Then use the modified
++binary and its matching installed stylesheets:
++
++```sh
++oscap xccdf generate report \
++  --enrichment examples/report-enrichment/context.xml \
++  --output enriched-report.html \
++  tests/API/XCCDF/report/results-xccdf12.xml
++```
++
++`--enrichment` is NEW in this patch. A stock oscap binary will not recognize it.
++It is supported only by `xccdf generate report`, not `xccdf eval --report`.
++Omitting it retains the normal report. Existing report generation accepts ARF,
++but this prototype's executed tests cover XCCDF 1.2 only; test your real ARF
++before relying on it.
++
++Supply a trusted local XML file. The native CLI resolves its absolute path.
++Paths containing apostrophes are rejected because this OpenSCAP version wraps
++XSLT parameters in single-quoted XPath expressions. For this prototype, use
++simple filenames without URI-special characters such as `#` or `%`.
++
++## Mapping format
++
++See `context.xml`. The namespace is `urn:openscap:report-enrichment:1` and
++`schema-version` must be `1`. Match the Benchmark's exact ID and version,
++then the Rule's exact ID. Do not change your real results to match the sample.
++Copy those identifiers from your own results into a new mapping file.
++
++Rule fields:
++
++- `review-status` attribute: label such as `draft` or `reviewed`.
++- `explanation`: why the configuration matters.
++- Zero or more `attack` elements: attributes `technique` and `relationship`;
++  child elements `justification`, `conditions`, and `source href="https://..."`.
++- Zero or more `limitation` elements.
++- `verification`: administrator guidance, not executed commands or observations.
++
++All displayed content is escaped as text. Only HTTPS source URLs become links.
++Duplicate matches fail rather than displaying competing interpretations.
++Unsupported schema versions fail when context is rendered. An unmatched
++benchmark version or rule produces an explicit 'No matching context' message.
++This is minimal format checking, not full XML-schema validation.
++
++## What this does not implement yet
++
++- Automatic ATT&CK mappings or reviewed Ubuntu mapping coverage.
++- CVE matching or a claim that a configuration failure is exploitable.
++- Additional host evidence collection or joining vulnerability results.
++- New risk scores, feed updates, or remote downloads.
++
++Existing OVAL details remain the source of scan evidence. Keep curated mappings
++separate from observations. A later evidence join should bind the original
++input digest, asset, TestResult, rule, and result instance; a rule ID alone is
++not enough for host-specific evidence.
++
++## Changed code
++
++- `utils/oscap-tool.h`: stores the optional CLI argument.
++- `utils/oscap-xccdf.c`: parses and passes the local file to XSLT.
++- `xsl/xccdf-report-impl.xsl`: calls the new template inside rule details.
++- `xsl/xccdf-report-enrichment.xsl`: matches mappings and renders context.
++
++`xsl/CMakeLists.txt` already installs `*.xsl`, so a newly configured build
++includes the added stylesheet automatically.
++
++## Validation performed
++
++Eight lxml/libxslt renderer tests pass: optional behavior, mapped/unmapped
++rules, version mismatch, benchmark mismatch, duplicate rejection, unsupported
++schema rejection, text/link safety, and preservation of original rendered
++content after removing the added sections. Each render also checks that the
++input XML is unchanged. The synthetic demo renders successfully.
++
++The native C changes have NOT been compiled or tested end to end here because
++CMake and the OpenSCAP development dependencies are unavailable. A native
++build and a real Ubuntu ARF test are the next validation gates.
++
++## Next research step
++
++Select one actual Ubuntu rule, capture its exact Benchmark ID/version and
++Rule ID, and write a cited explanation and reviewed ATT&CK relationship.
++Regenerate the report from the same saved scan. Only after that works should
++you add Canonical vulnerability results and scan-specific evidence joins.
+diff --git a/examples/report-enrichment/context.xml b/examples/report-enrichment/context.xml
+new file mode 100644
+index 0000000..4a3b2e8
+--- /dev/null
++++ b/examples/report-enrichment/context.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<enrichment xmlns="urn:openscap:report-enrichment:1" schema-version="1">
++  <!-- Demonstration only: identifiers match the repository's synthetic fixture. -->
++  <benchmark id="xccdf_moc.elpmaxe.www_benchmark_test" version="1.0">
++    <rule id="xccdf_moc.elpmaxe.www_rule_1" review-status="illustrative; not reviewed">
++      <explanation>This sample demonstrates attaching context to an exact benchmark version and rule. Replace it with a reviewed explanation for a real scan.</explanation>
++      <limitation>No ATT&amp;CK mapping or CVE applicability has been established for this synthetic rule.</limitation>
++      <verification>Inspect the rule definition and its collected evidence before deciding on remediation.</verification>
++    </rule>
++  </benchmark>
++</enrichment>
+diff --git a/examples/report-enrichment/render_demo.py b/examples/report-enrichment/render_demo.py
+new file mode 100644
+index 0000000..a38b05e
+--- /dev/null
++++ b/examples/report-enrichment/render_demo.py
+@@ -0,0 +1,19 @@
++#!/usr/bin/env python3
++"""Render the synthetic XCCDF 1.2 fixture without compiling OpenSCAP."""
++from pathlib import Path
++from lxml import etree
++
++ROOT = Path(__file__).resolve().parents[2]
++parser = etree.XMLParser(resolve_entities=False, load_dtd=False, no_network=True)
++source = etree.parse(str(ROOT / 'tests/API/XCCDF/report/results-xccdf12.xml'), parser)
++transform = etree.XSLT(
++    etree.parse(str(ROOT / 'xsl/xccdf-report.xsl'), parser),
++    access_control=etree.XSLTAccessControl(read_file=True, read_network=False,
++                                        write_file=False, write_network=False),
++)
++result = transform(source, **{
++    'enrichment-file': etree.XSLT.strparam((Path(__file__).parent / 'context.xml').resolve().as_uri())
++})
++output = Path.cwd() / 'enrichment-demo.html'
++output.write_bytes(bytes(result))
++print(output)
+diff --git a/tests/API/XCCDF/report/test_enrichment.py b/tests/API/XCCDF/report/test_enrichment.py
+new file mode 100644
+index 0000000..b6ec93f
+--- /dev/null
++++ b/tests/API/XCCDF/report/test_enrichment.py
+@@ -0,0 +1,77 @@
++#!/usr/bin/env python3
++"""Standalone renderer regression tests: python3 test_enrichment.py (requires lxml)."""
++import copy
++from pathlib import Path
++import tempfile
++import unittest
++from lxml import etree, html
++
++ROOT = Path(__file__).resolve().parents[4]
++NS = {'e': 'urn:openscap:report-enrichment:1'}
++CDF = {'c': 'http://checklists.nist.gov/xccdf/1.2'}
++
++class EnrichmentTests(unittest.TestCase):
++    def setUp(self):
++        self.source = etree.parse(str(Path(__file__).with_name('results-xccdf12.xml')))
++        self.mapping = etree.parse(str(ROOT / 'examples/report-enrichment/context.xml'))
++        self.transform = etree.XSLT(etree.parse(str(ROOT / 'xsl/xccdf-report.xsl')))
++        self.before = etree.tostring(self.source)
++
++    def render(self, mapping=None):
++        with tempfile.TemporaryDirectory() as folder:
++            params = {}
++            if mapping is not None:
++                path = Path(folder) / 'context.xml'
++                mapping.write(str(path))
++                params['enrichment-file'] = etree.XSLT.strparam(path.as_uri())
++            result = self.transform(self.source, **params)
++            self.assertEqual(self.before, etree.tostring(self.source))
++            return html.fromstring(bytes(result))
++
++    def test_optional(self):
++        self.assertFalse(self.render().xpath('//*[@class="security-context panel panel-info"]'))
++
++    def test_mapping_and_unmapped(self):
++        doc = self.render(self.mapping)
++        self.assertEqual(len(doc.xpath('//*[contains(@class,"security-context")]')), 2)
++        self.assertIn('This sample demonstrates', doc.text_content())
++        self.assertIn('No matching context', doc.text_content())
++
++    def test_version_mismatch(self):
++        self.mapping.find('e:benchmark', NS).set('version', '2.0')
++        self.assertNotIn('This sample demonstrates', self.render(self.mapping).text_content())
++
++    def test_benchmark_mismatch(self):
++        self.mapping.find('e:benchmark', NS).set('id', 'other')
++        self.assertNotIn('This sample demonstrates', self.render(self.mapping).text_content())
++
++    def test_duplicate_rejected(self):
++        benchmark = self.mapping.find('e:benchmark', NS)
++        benchmark.append(copy.deepcopy(benchmark[0]))
++        with self.assertRaises(etree.XSLTApplyError):
++            self.render(self.mapping)
++
++    def test_bad_schema_rejected(self):
++        self.mapping.getroot().set('schema-version', '2')
++        with self.assertRaises(etree.XSLTApplyError):
++            self.render(self.mapping)
++
++    def test_text_and_links_safe(self):
++        rule = self.mapping.find('e:benchmark/e:rule', NS)
++        rule.find('e:explanation', NS).text = '<script>alert(1)</script>'
++        attack = etree.SubElement(rule, '{%s}attack' % NS['e'], technique='TEST')
++        etree.SubElement(attack, '{%s}source' % NS['e'], href='javascript:alert(1)')
++        doc = self.render(self.mapping)
++        self.assertIn('<script>alert(1)</script>', doc.text_content())
++        self.assertFalse(doc.xpath('//script[text()="alert(1)"]'))
++        self.assertFalse(doc.xpath('//a[starts-with(@href,"javascript:")]'))
++
++    def test_existing_report_preserved(self):
++        plain = self.render()
++        enriched = self.render(self.mapping)
++        for node in enriched.xpath('//*[contains(@class,"security-context")]'):
++            node.getparent().remove(node)
++        self.assertEqual(etree.tostring(plain), etree.tostring(enriched))
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git a/utils/oscap-tool.h b/utils/oscap-tool.h
+index 6d8cdab..1b43b85 100644
+--- a/utils/oscap-tool.h
++++ b/utils/oscap-tool.h
+@@ -128,6 +128,7 @@ struct oscap_action {
+         char *id;
+         int hide_profile_info;
+         char *stylesheet;
++	char *enrichment;
+ 	char *tailoring_file;
+ 	char *tailoring_id;
+ 	char *cpe;
+diff --git a/utils/oscap-xccdf.c b/utils/oscap-xccdf.c
+index 7794ea0..667ea21 100644
+--- a/utils/oscap-xccdf.c
++++ b/utils/oscap-xccdf.c
+@@ -257,6 +257,7 @@ static struct oscap_module XCCDF_GEN_REPORT = {
+     .usage = "[options] xccdf-file.xml",
+     .help = GEN_OPTS
+ 		"\nReport Options:\n"
++		"   --enrichment <file>           - Add local, benchmark-scoped security context XML.\n"
+ 		"   --result-id <id>              - TestResult ID to be processed. Default is the most recent one.\n"
+ 		"   --output <file>               - Write the document into file.\n"
+ 		"   --verbose <verbosity_level>   - Turn on verbose mode at specified verbosity level.\n"
+@@ -379,6 +380,7 @@ static const char * RESULT_COLORS[] = {"", "32", "31", "1;31", "1;30", "1", "1",
+ #endif
+ 
+ static char custom_stylesheet_path[PATH_MAX];
++static char enrichment_path[PATH_MAX];
+ 
+ static void _print_rule_details(struct xccdf_policy *policy, struct xccdf_item *item)
+ {
+@@ -1281,6 +1283,7 @@ int app_xccdf_xslt(const struct oscap_action *action)
+ 		"profile_id",        action->profile,
+ 		"oval-template",     oval_template,
+ 		"sce-template",      sce_template,
++		"enrichment-file",   action->enrichment,
+ 		"verbosity",         "",
+ 		"hide-profile-info", action->hide_profile_info ? "yes" : NULL,
+ 		NULL
+@@ -1320,6 +1323,7 @@ enum oval_opt {
+     XCCDF_OPT_REPORT_FILE,
+     XCCDF_OPT_FORMAT,
+     XCCDF_OPT_STYLESHEET_FILE,
++    XCCDF_OPT_ENRICHMENT_FILE,
+     XCCDF_OPT_FILE_VERSION,
+ 	XCCDF_OPT_TAILORING_FILE,
+ 	XCCDF_OPT_TAILORING_ID,
+@@ -1356,6 +1360,7 @@ bool getopt_xccdf(int argc, char **argv, struct oscap_action *action)
+ 		{"result-id",		required_argument, NULL, XCCDF_OPT_RESULT_ID},
+ 		{"report", 		required_argument, NULL, XCCDF_OPT_REPORT_FILE},
+ 		{"stylesheet",	required_argument, NULL, XCCDF_OPT_STYLESHEET_FILE},
++		{"enrichment", required_argument, NULL, XCCDF_OPT_ENRICHMENT_FILE},
+ 		{"tailoring-file", required_argument, NULL, XCCDF_OPT_TAILORING_FILE},
+ 		{"tailoring-id", required_argument, NULL, XCCDF_OPT_TAILORING_ID},
+ 		{"cpe",	required_argument, NULL, XCCDF_OPT_CPE},
+@@ -1410,6 +1415,17 @@ bool getopt_xccdf(int argc, char **argv, struct oscap_action *action)
+ 		/* we use realpath to get an absolute path to given XSLT to prevent openscap from looking
+ 		   into /usr/share/openscap/xsl instead of CWD */
+ 		case XCCDF_OPT_STYLESHEET_FILE: oscap_realpath(optarg, custom_stylesheet_path); action->stylesheet = custom_stylesheet_path; break;
++		case XCCDF_OPT_ENRICHMENT_FILE:
++			if (action->module != &XCCDF_GEN_REPORT) {
++				fprintf(stderr, "--enrichment is supported only by xccdf generate report.\n");
++				return false;
++			}
++			if (oscap_realpath(optarg, enrichment_path) == NULL || strchr(enrichment_path, '\'') != NULL) {
++				fprintf(stderr, "Cannot resolve enrichment file; use an existing local path without apostrophes.\n");
++				return false;
++			}
++			action->enrichment = enrichment_path;
++			break;
+ 		case XCCDF_OPT_TAILORING_FILE:	action->tailoring_file = optarg; break;
+ 		case XCCDF_OPT_TAILORING_ID:	action->tailoring_id = optarg; break;
+ 		case XCCDF_OPT_CPE:			action->cpe = optarg; break;
+diff --git a/xsl/xccdf-report-enrichment.xsl b/xsl/xccdf-report-enrichment.xsl
+new file mode 100644
+index 0000000..4c6cb56
+--- /dev/null
++++ b/xsl/xccdf-report-enrichment.xsl
+@@ -0,0 +1,59 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
++<xsl:stylesheet version="1.0"
++    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
++    xmlns:cdf="http://checklists.nist.gov/xccdf/1.2"
++    xmlns:e="urn:openscap:report-enrichment:1"
++    exclude-result-prefixes="cdf e">
++
++<xsl:param name="enrichment-file" select="''"/>
++
++<!-- Context is curated knowledge, never host observations or CVE detection. -->
++<xsl:template name="security-context">
++    <xsl:param name="item"/>
++    <xsl:if test="string-length($enrichment-file) &gt; 0">
++        <xsl:variable name="map" select="document($enrichment-file)/e:enrichment"/>
++        <xsl:if test="not($map) or $map/@schema-version != '1' or not($map/@schema-version)">
++            <xsl:message terminate="yes">Invalid enrichment document: expected schema-version 1 and enrichment namespace.</xsl:message>
++        </xsl:if>
++        <xsl:variable name="benchmark" select="$item/ancestor::cdf:Benchmark"/>
++        <xsl:variable name="entry" select="$map/e:benchmark[@id=$benchmark/@id and @version=$benchmark/cdf:version]/e:rule[@id=$item/@id]"/>
++        <xsl:if test="count($entry) &gt; 1">
++            <xsl:message terminate="yes">Duplicate enrichment mapping for a benchmark version and rule.</xsl:message>
++        </xsl:if>
++        <div class="security-context panel panel-info">
++            <div class="panel-heading"><h4 class="panel-title">Security context</h4></div>
++            <div class="panel-body">
++                <xsl:choose>
++                    <xsl:when test="$entry">
++                        <p class="text-muted">Curated context; this section does not establish exploitation or CVE applicability.</p>
++                        <p><strong>Review status: </strong><xsl:value-of select="$entry/@review-status"/></p>
++                        <p><xsl:value-of select="$entry/e:explanation"/></p>
++                        <xsl:for-each select="$entry/e:attack">
++                            <h5>ATT&amp;CK mapping: <xsl:value-of select="@technique"/></h5>
++                            <p><strong>Relationship: </strong><xsl:value-of select="@relationship"/></p>
++                            <p><xsl:value-of select="e:justification"/></p>
++                            <p><strong>Conditions: </strong><xsl:value-of select="e:conditions"/></p>
++                            <p><strong>Source: </strong>
++                                <xsl:choose>
++                                    <xsl:when test="starts-with(e:source/@href, 'https://')">
++                                        <a href="{e:source/@href}" rel="noopener noreferrer"><xsl:value-of select="e:source/@href"/></a>
++                                    </xsl:when>
++                                    <xsl:otherwise><xsl:value-of select="e:source/@href"/></xsl:otherwise>
++                                </xsl:choose>
++                            </p>
++                        </xsl:for-each>
++                        <xsl:for-each select="$entry/e:limitation">
++                            <p><strong>Limitation: </strong><xsl:value-of select="."/></p>
++                        </xsl:for-each>
++                        <xsl:if test="$entry/e:verification">
++                            <p><strong>Verification guidance: </strong><xsl:value-of select="$entry/e:verification"/></p>
++                        </xsl:if>
++                    </xsl:when>
++                    <xsl:otherwise><p>No matching context for this benchmark version and rule.</p></xsl:otherwise>
++                </xsl:choose>
++            </div>
++        </div>
++    </xsl:if>
++</xsl:template>
++</xsl:stylesheet>
+diff --git a/xsl/xccdf-report-impl.xsl b/xsl/xccdf-report-impl.xsl
+index 410f550..5dd7fff 100644
+--- a/xsl/xccdf-report-impl.xsl
++++ b/xsl/xccdf-report-impl.xsl
+@@ -44,6 +44,7 @@ Authors:
+ <xsl:include href="xccdf-share.xsl" />
+ 
+ <xsl:include href="xccdf-report-oval-details.xsl" />
++<xsl:include href="xccdf-report-enrichment.xsl" />
+ 
+ <xsl:output
+     method="html"
+@@ -957,6 +958,9 @@ Authors:
+                             <xsl:with-param name="profile" select="$profile"/>
+                             <xsl:with-param name="result" select="$result"/>
+                     </xsl:call-template>
++                    <xsl:call-template name="security-context">
++                        <xsl:with-param name="item" select="$item"/>
++                    </xsl:call-template>
+                     <xsl:variable name="check_system_details_ret">
+                         <xsl:call-template name="check-system-details">
+                             <xsl:with-param name="check" select="cdf:check"/>

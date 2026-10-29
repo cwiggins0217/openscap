@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<enrichment xmlns="urn:openscap:report-enrichment:1" schema-version="1">
+  <!-- Demonstration only: identifiers match the repository's synthetic fixture. -->
+  <benchmark id="xccdf_moc.elpmaxe.www_benchmark_test" version="1.0">
+    <rule id="xccdf_moc.elpmaxe.www_rule_1" review-status="illustrative; not reviewed">
+      <explanation>This sample demonstrates attaching context to an exact benchmark version and rule. Replace it with a reviewed explanation for a real scan.</explanation>
+      <limitation>No ATT&amp;CK mapping or CVE applicability has been established for this synthetic rule.</limitation>
+      <verification>Inspect the rule definition and its collected evidence before deciding on remediation.</verification>
+    </rule>
+  </benchmark>
+</enrichment>

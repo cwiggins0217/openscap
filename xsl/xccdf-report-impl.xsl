@@ -44,6 +44,7 @@ Authors:
 <xsl:include href="xccdf-share.xsl" />
 
 <xsl:include href="xccdf-report-oval-details.xsl" />
+<xsl:include href="xccdf-report-enrichment.xsl" />
 
 <xsl:output
     method="html"
@@ -956,6 +957,9 @@ Authors:
                             <xsl:with-param name="testresult" select="$testresult"/>
                             <xsl:with-param name="profile" select="$profile"/>
                             <xsl:with-param name="result" select="$result"/>
+                    </xsl:call-template>
+                    <xsl:call-template name="security-context">
+                        <xsl:with-param name="item" select="$item"/>
                     </xsl:call-template>
                     <xsl:variable name="check_system_details_ret">
                         <xsl:call-template name="check-system-details">

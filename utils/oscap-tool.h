@@ -128,6 +128,7 @@ struct oscap_action {
         char *id;
         int hide_profile_info;
         char *stylesheet;
+	char *enrichment;
 	char *tailoring_file;
 	char *tailoring_id;
 	char *cpe;
