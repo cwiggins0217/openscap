@@ -1,0 +1,149 @@
+diff --git a/xsl/xccdf-report-assessment.xsl b/xsl/xccdf-report-assessment.xsl
+index 290476a..76e9ee1 100644
+--- a/xsl/xccdf-report-assessment.xsl
++++ b/xsl/xccdf-report-assessment.xsl
+@@ -12,7 +12,7 @@
+     <xsl:variable name="p" select="$a/phase[@name=$assessment-phase]"/>
+     <xsl:variable name="r" select="$p/rule[@id=$item/@id]"/>
+     <div class="evidence-assessment panel panel-info">
+-      <div class="panel-heading"><h4 class="panel-title">Evidence assessment</h4></div>
++      <div class="panel-heading"><h4 class="panel-title">OpenSCAP reported <xsl:value-of select="translate($result, 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')"/></h4></div>
+       <div class="panel-body">
+         <xsl:choose>
+           <xsl:when test="count($p)!=1 or count($r)!=1 or not($assessment-phase='pre' or $assessment-phase='post' or $assessment-phase='followup')">
+@@ -22,25 +22,76 @@
+             <p>Indeterminate: assessment metadata or rule result does not match this report. Check phase and input selection.</p>
+           </xsl:when>
+           <xsl:otherwise>
+-            <p>Condition: <strong><xsl:value-of select="$assessment-phase"/></strong>. Saved rule result: <strong><xsl:value-of select="$r/@status"/></strong>.</p>
++            <xsl:variable name="root-login" select="$item/@id='xccdf_org.ssgproject.content_rule_sshd_disable_root_login'"/>
++            <xsl:variable name="permissions" select="$item/@id='xccdf_org.ssgproject.content_rule_file_permissions_sshd_drop_in_config'"/>
++            <xsl:variable name="setting" select="$p/setting[@name='permitrootlogin']"/>
++            <xsl:variable name="observed" select="count($setting)=1 and $setting/@status='observed' and count($setting/value)=1 and normalize-space($setting/value)!=''"/>
++            <h5>Scan conditions</h5>
++            <ul>
++              <li>Host: <xsl:value-of select="$p/target"/></li>
++              <li>Profile: <xsl:value-of select="$p/profile"/></li>
++              <xsl:choose>
++                <xsl:when test="$root-login"><li>Required setting: <code>PermitRootLogin no</code>.</li></xsl:when>
++                <xsl:when test="$permissions"><li>SSH server drop-in files must meet the benchmark's file permission requirement.</li></xsl:when>
++              </xsl:choose>
++            </ul>
++            <h5>Assessment</h5>
++            <p><strong>Rule ID: </strong><code><xsl:value-of select="$item/@id"/></code></p>
++            <p><strong>Status: </strong><xsl:choose>
++              <xsl:when test="$assessment-phase='pre'">Baseline scan before the experiment's hardening step.</xsl:when>
++              <xsl:when test="$assessment-phase='post'">First scan after the hardening step.</xsl:when>
++              <xsl:otherwise>Follow-up scan.</xsl:otherwise>
++            </xsl:choose></p>
++            <p><strong>Observed condition: </strong><xsl:choose>
++              <xsl:when test="$root-login and $observed">The saved SSH configuration shows <code>PermitRootLogin <xsl:value-of select="$setting/value"/></code>.</xsl:when>
++              <xsl:when test="$root-login">Indeterminate. No unique effective PermitRootLogin value was recorded for this scan.</xsl:when>
++              <xsl:when test="$permissions">The scan records the rule result. The assessment has no per-file mode or ownership evidence.</xsl:when>
++              <xsl:otherwise>No rule-specific observation is available.</xsl:otherwise>
++            </xsl:choose></p>
++            <xsl:if test="$root-login and $p/consistency">
++              <p><strong>Evidence check: </strong><xsl:value-of select="$p/consistency/@status"/>. <xsl:value-of select="$p/consistency"/></p>
++            </xsl:if>
++            <xsl:for-each select="$item/cdf:reference[(contains(@href,'nist.gov/') or contains(@href,'cisecurity.org/')) and (starts-with(@href,'http://') or starts-with(@href,'https://')) and normalize-space(.)]">
++              <p><strong>Benchmark reference: </strong><a href="{@href}"><xsl:call-template name="convert-reference-url-to-name"><xsl:with-param name="href" select="@href"/></xsl:call-template><xsl:text> </xsl:text><xsl:value-of select="."/></a></p>
++            </xsl:for-each>
++            <h5>Summary</h5>
+             <xsl:choose>
+-              <xsl:when test="$assessment-phase='pre'"><p>Baseline observation; no preceding condition is assessed.</p></xsl:when>
+-              <xsl:otherwise>
+-                <xsl:variable name="c" select="$a/comparison[@to=$assessment-phase and @rule_id=$item/@id and ((@from='pre' and @to='post') or (@from='post' and @to='followup'))]"/>
+-                <xsl:choose><xsl:when test="count($c)=1"><p>Scan transition: <xsl:value-of select="$c/@from"/> → <xsl:value-of select="$c/@to"/>: <strong><xsl:value-of select="$c"/></strong> (<xsl:value-of select="$c/@assessment"/>).</p></xsl:when><xsl:otherwise><p>Indeterminate: no unique preceding comparison.</p></xsl:otherwise></xsl:choose>
+-              </xsl:otherwise>
+-            </xsl:choose>
+-            <xsl:if test="string($r/reason)"><p><xsl:value-of select="$r/reason"/></p></xsl:if>
+-            <xsl:choose>
+-              <xsl:when test="$item/@id='xccdf_org.ssgproject.content_rule_sshd_disable_root_login'">
+-                <p>Scan/configuration consistency: <strong><xsl:value-of select="$p/consistency/@status"/></strong>. <xsl:value-of select="$p/consistency"/></p>
+-                <ul><xsl:for-each select="$p/setting"><li><code><xsl:value-of select="@name"/></code>: <xsl:choose><xsl:when test="@status='observed' and string(value)"><xsl:value-of select="value"/></xsl:when><xsl:otherwise>indeterminate — <xsl:value-of select="reason"/></xsl:otherwise></xsl:choose></li></xsl:for-each></ul>
+-                <xsl:if test="$p/capture-note"><p><xsl:value-of select="$p/capture-note"/></p></xsl:if>
++              <xsl:when test="$root-login">
++                <p><xsl:choose>
++                  <xsl:when test="$result!='fail' and $result!='pass'">This scan did not return a pass or fail verdict.</xsl:when>
++                  <xsl:when test="not($observed)">The effective setting cannot explain this verdict without a capture from the same phase.</xsl:when>
++                  <xsl:when test="$p/consistency/@status!='consistent' or not($p/consistency/@status) or (($setting/value='no') != ($result='pass'))">The cause is indeterminate. Check capture timing and the applicable SSH Match context.</xsl:when>
++                  <xsl:when test="$result='pass'">The captured value matches the requirement to disable direct root login.</xsl:when>
++                  <xsl:when test="$setting/value='without-password' or $setting/value='prohibit-password'">The captured value blocks password authentication for root but still permits key-based root login. The rule requires all direct root SSH logins to be disabled.</xsl:when>
++                  <xsl:otherwise>The captured value differs from the required value of <code>no</code>.</xsl:otherwise>
++                </xsl:choose></p>
++                <p>Disabling direct root login directs administrators through individual accounts.
++                  <xsl:if test="$result='fail'"> Verify named administrator access, set <code>PermitRootLogin no</code>, validate with <code>sshd -t</code>, reload SSH, and repeat the scan.</xsl:if>
++                </p>
+               </xsl:when>
+-              <xsl:otherwise><p>File mode, ownership and read/write capability are not supplied by this assessment. A permissions result alone does not establish unauthorized write access.</p></xsl:otherwise>
++              <xsl:when test="$permissions">
++                <p>Restricting drop-in file permissions protects SSH policy.
++                  <xsl:if test="$result='fail'"> Inspect the drop-in files, correct the modes identified by the benchmark check, and repeat the scan.</xsl:if>
++                </p>
++              </xsl:when>
++              <xsl:otherwise><p>Review the rule definition and its check output to interpret this result.</p></xsl:otherwise>
+             </xsl:choose>
++            <xsl:if test="$assessment-phase!='pre'">
++              <xsl:variable name="c" select="$a/comparison[@to=$assessment-phase and @rule_id=$item/@id and ((@from='pre' and @to='post') or (@from='post' and @to='followup'))]"/>
++              <xsl:choose>
++                <xsl:when test="count($c)=1"><p>Change since the preceding scan: <strong><xsl:value-of select="$c"/></strong> (<xsl:value-of select="$c/@assessment"/>).</p></xsl:when>
++                <xsl:otherwise><p>Indeterminate: no unique preceding comparison.</p></xsl:otherwise>
++              </xsl:choose>
++            </xsl:if>
++            <xsl:if test="string($r/reason)"><p><xsl:value-of select="$r/reason"/></p></xsl:if>
++            <details><summary>Supporting evidence and limitations</summary>
++            <xsl:if test="$root-login">
++              <ul><xsl:for-each select="$p/setting"><li><code><xsl:value-of select="@name"/></code>: <xsl:choose><xsl:when test="@status='observed' and string(value)"><xsl:value-of select="value"/></xsl:when><xsl:otherwise>indeterminate — <xsl:value-of select="reason"/></xsl:otherwise></xsl:choose></li></xsl:for-each></ul>
++              <xsl:if test="$p/capture-note"><p><xsl:value-of select="$p/capture-note"/></p></xsl:if>
++            </xsl:if>
+             <h5>Evidence references</h5><ul><xsl:for-each select="$p/source[@kind='scan' or (@kind='effective_ssh' and $item/@id='xccdf_org.ssgproject.content_rule_sshd_disable_root_login')]"><li><xsl:choose><xsl:when test="starts-with(@href,'file:///')"><a href="{@href}"><xsl:value-of select="path"/></a></xsl:when><xsl:otherwise><xsl:value-of select="path"/></xsl:otherwise></xsl:choose><br/>SHA-256: <code><xsl:value-of select="sha256"/></code></li></xsl:for-each></ul>
+             <h5>Limitations</h5><ul><xsl:for-each select="$a/limitation"><li><xsl:value-of select="."/></li></xsl:for-each></ul>
++            </details>
+           </xsl:otherwise>
+         </xsl:choose>
+       </div>
+diff --git a/xsl/xccdf-report-enrichment.xsl b/xsl/xccdf-report-enrichment.xsl
+index 4c6cb56..46d5c2e 100644
+--- a/xsl/xccdf-report-enrichment.xsl
++++ b/xsl/xccdf-report-enrichment.xsl
+@@ -30,11 +30,7 @@
+                         <p><strong>Review status: </strong><xsl:value-of select="$entry/@review-status"/></p>
+                         <p><xsl:value-of select="$entry/e:explanation"/></p>
+                         <xsl:for-each select="$entry/e:attack">
+-                            <h5>ATT&amp;CK mapping: <xsl:value-of select="@technique"/></h5>
+-                            <p><strong>Relationship: </strong><xsl:value-of select="@relationship"/></p>
+-                            <p><xsl:value-of select="e:justification"/></p>
+-                            <p><strong>Conditions: </strong><xsl:value-of select="e:conditions"/></p>
+-                            <p><strong>Source: </strong>
++                            <p><strong>ATT&amp;CK reference </strong><xsl:value-of select="@technique"/><xsl:text> </xsl:text>
+                                 <xsl:choose>
+                                     <xsl:when test="starts-with(e:source/@href, 'https://')">
+                                         <a href="{e:source/@href}" rel="noopener noreferrer"><xsl:value-of select="e:source/@href"/></a>
+diff --git a/xsl/xccdf-report-impl.xsl b/xsl/xccdf-report-impl.xsl
+index ab33945..474792c 100644
+--- a/xsl/xccdf-report-impl.xsl
++++ b/xsl/xccdf-report-impl.xsl
+@@ -953,6 +953,11 @@ Authors:
+                     </h3>
+                 </div>
+                 <div class="panel-body">
++                    <xsl:call-template name="evidence-assessment">
++                        <xsl:with-param name="item" select="$item"/>
++                        <xsl:with-param name="testresult" select="$testresult"/>
++                        <xsl:with-param name="result" select="$result"/>
++                    </xsl:call-template>
+                     <xsl:call-template name="result-details-leaf-table">
+                             <xsl:with-param name="item" select="$item"/>
+                             <xsl:with-param name="testresult" select="$testresult"/>
+@@ -962,11 +967,6 @@ Authors:
+                     <xsl:call-template name="security-context">
+                         <xsl:with-param name="item" select="$item"/>
+                     </xsl:call-template>
+-                    <xsl:call-template name="evidence-assessment">
+-                        <xsl:with-param name="item" select="$item"/>
+-                        <xsl:with-param name="testresult" select="$testresult"/>
+-                        <xsl:with-param name="result" select="$result"/>
+-                    </xsl:call-template>
+                     <xsl:variable name="check_system_details_ret">
+                         <xsl:call-template name="check-system-details">
+                             <xsl:with-param name="check" select="cdf:check"/>

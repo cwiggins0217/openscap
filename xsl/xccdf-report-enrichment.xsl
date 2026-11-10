@@ -30,11 +30,7 @@
                         <p><strong>Review status: </strong><xsl:value-of select="$entry/@review-status"/></p>
                         <p><xsl:value-of select="$entry/e:explanation"/></p>
                         <xsl:for-each select="$entry/e:attack">
-                            <h5>ATT&amp;CK mapping: <xsl:value-of select="@technique"/></h5>
-                            <p><strong>Relationship: </strong><xsl:value-of select="@relationship"/></p>
-                            <p><xsl:value-of select="e:justification"/></p>
-                            <p><strong>Conditions: </strong><xsl:value-of select="e:conditions"/></p>
-                            <p><strong>Source: </strong>
+                            <p><strong>ATT&amp;CK reference </strong><xsl:value-of select="@technique"/><xsl:text> </xsl:text>
                                 <xsl:choose>
                                     <xsl:when test="starts-with(e:source/@href, 'https://')">
                                         <a href="{e:source/@href}" rel="noopener noreferrer"><xsl:value-of select="e:source/@href"/></a>

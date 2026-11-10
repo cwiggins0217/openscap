@@ -953,6 +953,11 @@ Authors:
                     </h3>
                 </div>
                 <div class="panel-body">
+                    <xsl:call-template name="evidence-assessment">
+                        <xsl:with-param name="item" select="$item"/>
+                        <xsl:with-param name="testresult" select="$testresult"/>
+                        <xsl:with-param name="result" select="$result"/>
+                    </xsl:call-template>
                     <xsl:call-template name="result-details-leaf-table">
                             <xsl:with-param name="item" select="$item"/>
                             <xsl:with-param name="testresult" select="$testresult"/>
@@ -961,11 +966,6 @@ Authors:
                     </xsl:call-template>
                     <xsl:call-template name="security-context">
                         <xsl:with-param name="item" select="$item"/>
-                    </xsl:call-template>
-                    <xsl:call-template name="evidence-assessment">
-                        <xsl:with-param name="item" select="$item"/>
-                        <xsl:with-param name="testresult" select="$testresult"/>
-                        <xsl:with-param name="result" select="$result"/>
                     </xsl:call-template>
                     <xsl:variable name="check_system_details_ret">
                         <xsl:call-template name="check-system-details">
