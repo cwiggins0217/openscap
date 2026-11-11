@@ -1,0 +1,144 @@
+diff --git a/lab-content/ubuntu2404-context.xml b/lab-content/ubuntu2404-context.xml
+index e54a2a5..6b76c04 100644
+--- a/lab-content/ubuntu2404-context.xml
++++ b/lab-content/ubuntu2404-context.xml
+@@ -1,12 +1,9 @@
+-<?xml version="1.0" encoding="UTF-8"?>
++<?xml version='1.0' encoding='UTF-8'?>
+ <enrichment xmlns="urn:openscap:report-enrichment:1" schema-version="1">
+-  <benchmark id="xccdf_org.ssgproject.content_benchmark_UBUNTU_24-04"
+-             version="0.1.82">
+-    <rule id="xccdf_org.ssgproject.content_rule_sshd_disable_root_login"
+-          review-status="draft; project-authored; independent review pending">
++  <benchmark id="xccdf_org.ssgproject.content_benchmark_UBUNTU_24-04" version="0.1.82">
++    <rule id="xccdf_org.ssgproject.content_rule_sshd_disable_root_login" review-status="draft; project-authored; independent review pending">
+       <explanation>This control requires disabling direct SSH login as root. PermitRootLogin without-password prohibits root password and keyboard-interactive authentication but can still permit public-key authentication. PermitRootLogin no disables direct root SSH login. Administrative access through another account and authorized privilege elevation must be assessed separately.</explanation>
+-      <attack technique="T1078.003"
+-              relationship="Conditional restriction of one local-account access path">
++      <attack technique="T1078.003" relationship="Conditional restriction of one local-account access path">
+         <justification>An adversary possessing usable credentials for the local root account could abuse direct root SSH access when that access is permitted. Disabling it restricts this particular route; it does not prevent abuse of other local accounts or other routes to root.</justification>
+         <conditions>SSH must be reachable, the applicable SSH configuration must permit root authentication, and the adversary must satisfy the authentication and account-access requirements. A failed compliance check alone does not establish these conditions.</conditions>
+         <source href="https://attack.mitre.org/techniques/T1078/003/"/>
+@@ -15,6 +12,52 @@
+       <limitation>No CVE applicability is established by this configuration finding.</limitation>
+       <limitation>A passing result does not establish that all SSH access or local-account abuse is prevented.</limitation>
+       <verification>Compare the selected scan result with the saved effective SSH configuration and corresponding root-login and administrative-access test logs. Account for connection-specific Match settings. OpenSSH setting reference: https://man.openbsd.org/sshd_config#PermitRootLogin</verification>
++      <guidance heading="Required configuration">
++        <text>The evaluated content requires PermitRootLogin no. ComplianceAsCode 0.1.82 defines this value in its Disable SSH Root Login rule. Compare the captured effective value with this requirement to explain the scan verdict.</text>
++        <source href="https://github.com/ComplianceAsCode/content/blob/v0.1.82/linux_os/guide/services/ssh/ssh_server/sshd_disable_root_login/rule.yml">ComplianceAsCode 0.1.82 — Disable SSH Root Login, description and template</source>
++      </guidance>
++      <guidance heading="Why the observed value matters">
++        <text>PermitRootLogin without-password is an alias for prohibit-password. It blocks password and keyboard-interactive authentication for root while leaving public-key authentication available. PermitRootLogin no denies direct root login over SSH. The observed value above belongs to this report’s selected evidence phase.</text>
++        <source href="https://manpages.ubuntu.com/manpages/noble/man5/sshd_config.5.html#PermitRootLogin">Ubuntu 24.04 OpenSSH manual — sshd_config(5), PermitRootLogin</source>
++      </guidance>
++      <guidance heading="Why this control matters">
++        <text>Using an individual account before elevating privileges supports attribution of administrative activity. The rule’s rationale explicitly identifies individual accountability as a reason to disable direct root login.</text>
++        <source href="https://github.com/ComplianceAsCode/content/blob/v0.1.82/linux_os/guide/services/ssh/ssh_server/sshd_disable_root_login/rule.yml">ComplianceAsCode 0.1.82 — Disable SSH Root Login, rationale</source>
++      </guidance>
++      <guidance heading="NIST control context">
++        <text>The rule maps to AC-6(2), Non-privileged Access for Nonsecurity Functions, in NIST SP 800-53 Revision 4. That enhancement calls for ordinary accounts when performing nonsecurity work. Individual-account login followed by deliberate privilege elevation supports this principle. This relationship is broader than the single SSH setting.</text>
++        <source href="https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-53r4.pdf#page=176">NIST SP 800-53 Rev. 4 — AC-6(2), Appendix F, page F-19</source>
++      </guidance>
++      <guidance heading="Related ATT&amp;CK reference">
++        <text>T1078.003, Valid Accounts: Local Accounts, describes misuse of local-account credentials. Root is a local account, which makes the technique relevant background for a control governing direct root authentication. The association with this SSH rule is a project-authored mapping.</text>
++        <source href="https://attack.mitre.org/techniques/T1078/003/">MITRE ATT&amp;CK — T1078.003, Valid Accounts: Local Accounts</source>
++      </guidance>
++      <guidance heading="How to correct the configuration">
++        <text>Set PermitRootLogin no in the configuration that takes precedence. Ubuntu includes /etc/ssh/sshd_config.d/*.conf at the beginning of its main configuration. Check earlier assignments and applicable Match blocks when the captured value differs from the intended setting.</text>
++        <source href="https://manpages.ubuntu.com/manpages/noble/man5/sshd_config.5.html">Ubuntu 24.04 OpenSSH manual — DESCRIPTION, Include and Match</source>
++      </guidance>
++      <guidance heading="How to verify the change">
++        <text>Confirm named administrator access before changing SSH. Validate the configuration with sshd -t, reload the service, and capture sshd -T for the new phase. Use sshd -T -C with the connection parameters when Match blocks apply. Repeat the compliance scan and save separate root-login and administrator-access test results.</text>
++        <source href="https://man.openbsd.org/sshd">OpenSSH manual — sshd(8), -t, -T and -C</source>
++      </guidance>
++    </rule>
++    <rule id="xccdf_org.ssgproject.content_rule_file_permissions_sshd_drop_in_config" review-status="draft; project-authored; independent review pending">
++      <guidance heading="Required configuration">
++        <text>ComplianceAsCode 0.1.82 defines mode 0600 as the remediation target for files matched in the SSH server configuration directory. The rule’s generated check determines which files and permission bits caused the verdict. The current assessment input carries the rule verdict but omits per-file modes and ownership.</text>
++        <source href="https://github.com/ComplianceAsCode/content/blob/v0.1.82/linux_os/guide/services/ssh/file_permissions_sshd_drop_in_config/rule.yml">ComplianceAsCode 0.1.82 — Verify Permissions on SSH Server Config File, template and fixtext</source>
++      </guidance>
++      <guidance heading="Why this control matters">
++        <text>SSH drop-in files can change authentication policy. Ubuntu reads these files before the remainder of the main sshd configuration, so settings in a drop-in can take precedence. Restricting who can modify these files protects the configuration applied by the service.</text>
++        <source href="https://manpages.ubuntu.com/manpages/noble/man5/sshd_config.5.html">Ubuntu 24.04 OpenSSH manual — DESCRIPTION and Include</source>
++      </guidance>
++      <guidance heading="NIST control context">
++        <text>The rule references CM-6(a), Configuration Settings. This control requires documented security settings compatible with operational needs. It also references AC-6(1), which addresses authorization for security functions and security-relevant information. File permissions implement part of that access restriction.</text>
++        <source href="https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-53r4.pdf#page=227">NIST SP 800-53 Rev. 4 — CM-6(a), Appendix F, page F-70; AC-6(1), page F-19</source>
++      </guidance>
++      <guidance heading="How to correct and verify permissions">
++        <text>Inspect the files identified by the check, record their paths and modes, and apply the rule’s 0600 remediation target to the affected files. Repeat the scan and capture the resulting file metadata. Inspect the separate ownership rules when assessing owner and group requirements.</text>
++        <source href="https://github.com/ComplianceAsCode/content/blob/v0.1.82/linux_os/guide/services/ssh/file_permissions_sshd_drop_in_config/rule.yml">ComplianceAsCode 0.1.82 — Verify Permissions on SSH Server Config File, OCIL and fixtext</source>
++      </guidance>
+     </rule>
+   </benchmark>
+ </enrichment>
+diff --git a/xsl/xccdf-report-enrichment.xsl b/xsl/xccdf-report-enrichment.xsl
+index 46d5c2e..8c34fec 100644
+--- a/xsl/xccdf-report-enrichment.xsl
++++ b/xsl/xccdf-report-enrichment.xsl
+@@ -22,14 +22,29 @@
+             <xsl:message terminate="yes">Duplicate enrichment mapping for a benchmark version and rule.</xsl:message>
+         </xsl:if>
+         <div class="security-context panel panel-info">
+-            <div class="panel-heading"><h4 class="panel-title">Security context</h4></div>
++            <div class="panel-heading"><h4 class="panel-title">Explanation and sources</h4></div>
+             <div class="panel-body">
+                 <xsl:choose>
+                     <xsl:when test="$entry">
+-                        <p class="text-muted">Curated context; this section does not establish exploitation or CVE applicability.</p>
+                         <p><strong>Review status: </strong><xsl:value-of select="$entry/@review-status"/></p>
+-                        <p><xsl:value-of select="$entry/e:explanation"/></p>
+-                        <xsl:for-each select="$entry/e:attack">
++                        <xsl:choose>
++                            <xsl:when test="$entry/e:guidance">
++                                <xsl:for-each select="$entry/e:guidance">
++                                    <h5><xsl:value-of select="@heading"/></h5>
++                                    <p><xsl:value-of select="e:text"/></p>
++                                    <p class="guidance-source">
++                                        <xsl:choose>
++                                            <xsl:when test="starts-with(e:source/@href, 'https://') or starts-with(e:source/@href, 'http://')">
++                                                <a href="{e:source/@href}" rel="noopener noreferrer"><xsl:value-of select="e:source"/></a>
++                                            </xsl:when>
++                                            <xsl:otherwise><xsl:value-of select="e:source"/></xsl:otherwise>
++                                        </xsl:choose>
++                                    </p>
++                                </xsl:for-each>
++                            </xsl:when>
++                            <xsl:otherwise><p><xsl:value-of select="$entry/e:explanation"/></p></xsl:otherwise>
++                        </xsl:choose>
++                        <xsl:for-each select="$entry/e:attack[not(../e:guidance)]">
+                             <p><strong>ATT&amp;CK reference </strong><xsl:value-of select="@technique"/><xsl:text> </xsl:text>
+                                 <xsl:choose>
+                                     <xsl:when test="starts-with(e:source/@href, 'https://')">
+@@ -42,7 +57,7 @@
+                         <xsl:for-each select="$entry/e:limitation">
+                             <p><strong>Limitation: </strong><xsl:value-of select="."/></p>
+                         </xsl:for-each>
+-                        <xsl:if test="$entry/e:verification">
++                        <xsl:if test="$entry/e:verification and not($entry/e:guidance)">
+                             <p><strong>Verification guidance: </strong><xsl:value-of select="$entry/e:verification"/></p>
+                         </xsl:if>
+                     </xsl:when>
+diff --git a/xsl/xccdf-report-impl.xsl b/xsl/xccdf-report-impl.xsl
+index 474792c..3ef8d2b 100644
+--- a/xsl/xccdf-report-impl.xsl
++++ b/xsl/xccdf-report-impl.xsl
+@@ -958,15 +958,15 @@ Authors:
+                         <xsl:with-param name="testresult" select="$testresult"/>
+                         <xsl:with-param name="result" select="$result"/>
+                     </xsl:call-template>
++                    <xsl:call-template name="security-context">
++                        <xsl:with-param name="item" select="$item"/>
++                    </xsl:call-template>
+                     <xsl:call-template name="result-details-leaf-table">
+                             <xsl:with-param name="item" select="$item"/>
+                             <xsl:with-param name="testresult" select="$testresult"/>
+                             <xsl:with-param name="profile" select="$profile"/>
+                             <xsl:with-param name="result" select="$result"/>
+                     </xsl:call-template>
+-                    <xsl:call-template name="security-context">
+-                        <xsl:with-param name="item" select="$item"/>
+-                    </xsl:call-template>
+                     <xsl:variable name="check_system_details_ret">
+                         <xsl:call-template name="check-system-details">
+                             <xsl:with-param name="check" select="cdf:check"/>
