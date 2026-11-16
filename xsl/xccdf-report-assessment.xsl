@@ -51,7 +51,7 @@
                 <xsl:otherwise><li>Inspect the rule's check details above for the conditions behind this result.</li></xsl:otherwise>
               </xsl:choose>
             </ul>
-            <h5>Assessment</h5>
+            <h4 style="font-size:18px;font-weight:600;border-bottom:1px solid #ccd6df;padding-bottom:8px;margin-top:24px;">Assessment</h4>
             <p><strong>Rule ID: </strong><code><xsl:value-of select="$item/@id"/></code></p>
             <p><strong>Status: </strong><xsl:choose>
               <xsl:when test="$assessment-phase='pre'">Scanned for compliance before the experiment's remediation step.</xsl:when>
@@ -70,7 +70,7 @@
                 <xsl:otherwise><li>The recorded scan result is <code><xsl:value-of select="$result"/></code>.</li></xsl:otherwise>
               </xsl:choose>
             </ul>
-            <h5>Summary</h5>
+            <h4 style="font-size:18px;font-weight:600;border-bottom:1px solid #ccd6df;padding-bottom:8px;margin-top:24px;">Summary</h4>
             <p><xsl:choose>
               <xsl:when test="$root-login and $observed and $p/consistency/@status='consistent' and $result='fail' and $setting/value!='no'">
                 <xsl:if test="$setting/value='without-password' or $setting/value='prohibit-password'">The captured setting still permits key-based root login. </xsl:if>
@@ -78,18 +78,37 @@
               </xsl:when>
               <xsl:when test="$root-login and $observed and $p/consistency/@status='consistent' and $result='pass' and $setting/value='no'">The captured configuration disables direct root SSH login and agrees with the passing scan. Use the saved login tests to verify administrator access.</xsl:when>
               <xsl:when test="$root-login">Check the effective configuration for this phase and any applicable Match blocks before explaining the verdict or choosing remediation.</xsl:when>
-              <xsl:when test="$permissions and $result='fail'">Identify the affected files in the check details, apply the rule's 0600 remediation target, and rescan.</xsl:when>
+              <xsl:when test="$permissions and $result='fail'">Identify the affected files and actual permission bits, review the supplied remediation script, correct the permissions, and rescan.</xsl:when>
               <xsl:when test="$permissions and $result='pass'">OpenSCAP reports that the permission check passed. Save per-file metadata to document the configuration behind the result.</xsl:when>
               <xsl:otherwise>Review the check details and capture the relevant configuration before choosing remediation.</xsl:otherwise>
             </xsl:choose></p>
-            <details><summary>Supporting evidence and limitations</summary>
+            <section class="supporting-evidence"><h4 style="font-size:18px;font-weight:600;border-bottom:1px solid #ccd6df;padding-bottom:8px;margin-top:24px;">Supporting Evidence/Documentation</h4>
+            <table class="table table-striped table-bordered">
+              <thead><tr><th scope="col">Evidence</th><th scope="col">Recorded observation</th><th scope="col">What it supports</th></tr></thead>
+              <tbody>
+                <tr><td>Scan result</td><td><xsl:value-of select="$result"/></td><td>OpenSCAP verdict for this rule and scan.</td></tr>
+                <tr><td>Target</td><td><xsl:value-of select="$p/target"/></td><td>Target recorded for the matched assessment phase.</td></tr>
+                <tr><td>Profile</td><td><xsl:value-of select="$p/profile"/></td><td>Selected compliance profile.</td></tr>
+                <tr><td>Scan interval</td><td><xsl:value-of select="$p/start_time"/> to <xsl:value-of select="$p/end_time"/></td><td>Scan timestamps; not authentication-test timestamps.</td></tr>
+                <xsl:if test="$root-login"><tr><td>Effective PermitRootLogin</td><td><xsl:choose><xsl:when test="$observed"><xsl:value-of select="$setting/value"/></xsl:when><xsl:otherwise>Not uniquely recorded</xsl:otherwise></xsl:choose></td><td>Configuration evidence; does not establish a successful or blocked login.</td></tr></xsl:if>
+                <xsl:if test="$permissions"><tr><td>Per-file permissions</td><td>Not included in the assessment input</td><td>The affected file, actual mode and ownership cannot be established from this assessment.</td></tr></xsl:if>
+                <tr><td>Access/functionality tests</td><td>Not included in this assessment</td><td>No conclusion about successful administration or attack prevention is drawn here.</td></tr>
+              </tbody>
+            </table>
+            <h5>Documentation</h5><ul>
+              <xsl:choose>
+                <xsl:when test="$root-login"><li><a href="https://github.com/ComplianceAsCode/content/blob/v0.1.82/linux_os/guide/services/ssh/ssh_server/sshd_disable_root_login/rule.yml">SSG 0.1.82 root-login rule</a></li><li><a href="https://manpages.ubuntu.com/manpages/noble/man5/sshd_config.5.html#PermitRootLogin">OpenSSH configuration reference</a></li></xsl:when>
+                <xsl:when test="$permissions"><li><a href="https://github.com/ComplianceAsCode/content/blob/v0.1.82/linux_os/guide/services/ssh/file_permissions_sshd_drop_in_config/rule.yml">SSG 0.1.82 drop-in permissions rule</a></li></xsl:when>
+                <xsl:otherwise><li>See the original rule references above.</li></xsl:otherwise>
+              </xsl:choose>
+            </ul>
             <xsl:if test="$root-login">
               <ul><xsl:for-each select="$p/setting"><li><code><xsl:value-of select="@name"/></code>: <xsl:choose><xsl:when test="@status='observed' and string(value)"><xsl:value-of select="value"/></xsl:when><xsl:otherwise>indeterminate — <xsl:value-of select="reason"/></xsl:otherwise></xsl:choose></li></xsl:for-each></ul>
               <xsl:if test="$p/capture-note"><p><xsl:value-of select="$p/capture-note"/></p></xsl:if>
             </xsl:if>
             <h5>Evidence references</h5><ul><xsl:for-each select="$p/source[@kind='scan' or (@kind='effective_ssh' and $item/@id='xccdf_org.ssgproject.content_rule_sshd_disable_root_login')]"><li><xsl:choose><xsl:when test="starts-with(@href,'file:///')"><a href="{@href}"><xsl:value-of select="path"/></a></xsl:when><xsl:otherwise><xsl:value-of select="path"/></xsl:otherwise></xsl:choose><br/>SHA-256: <code><xsl:value-of select="sha256"/></code></li></xsl:for-each></ul>
             <h5>Limitations</h5><ul><xsl:for-each select="$a/limitation"><li><xsl:value-of select="."/></li></xsl:for-each></ul>
-            </details>
+            </section>
           </xsl:otherwise>
         </xsl:choose>
       </div>
