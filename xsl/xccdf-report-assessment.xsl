@@ -8,6 +8,9 @@
     <xsl:variable name="a" select="document($assessment-uri)/assessment[@schema='1.0']"/>
     <xsl:variable name="p" select="$a/phase[@name=$assessment-phase]"/>
     <xsl:variable name="r" select="$p/rule[@id=$item/@id]"/>
+    <!-- Keep uncovered rules unchanged. Known supported rules and rules recorded
+         in any phase remain in scope even when the selected phase is missing. -->
+    <xsl:if test="$item/@id='xccdf_org.ssgproject.content_rule_sshd_disable_root_login' or $item/@id='xccdf_org.ssgproject.content_rule_file_permissions_sshd_drop_in_config' or $a/phase/rule[@id=$item/@id]">
     <div class="evidence-assessment panel panel-info">
       <div class="panel-heading"><h4 class="panel-title">Reason for the OpenSCAP result — <xsl:value-of select="translate($result, 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')"/></h4></div>
       <div class="panel-body">
@@ -91,6 +94,7 @@
         </xsl:choose>
       </div>
     </div>
+    </xsl:if>
   </xsl:if>
 </xsl:template>
 </xsl:stylesheet>

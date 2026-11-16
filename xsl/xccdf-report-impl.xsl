@@ -978,11 +978,9 @@ Authors:
                         <xsl:with-param name="testresult" select="$testresult"/>
                         <xsl:with-param name="result" select="$result"/>
                     </xsl:call-template>
-                    <xsl:if test="$assessment-uri = ''">
-                        <xsl:call-template name="security-context">
-                            <xsl:with-param name="item" select="$item"/>
-                        </xsl:call-template>
-                    </xsl:if>
+                    <xsl:call-template name="security-context">
+                        <xsl:with-param name="item" select="$item"/>
+                    </xsl:call-template>
                 </div>
             </div>
         </xsl:if>
